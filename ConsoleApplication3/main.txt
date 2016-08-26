@@ -1,0 +1,158 @@
+﻿using Microsoft.AspNet.SignalR.Client;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ConsoleApplication3
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+           //ConnectToSignalR2();
+            test();
+            Console.ReadLine();
+        }
+
+        public class ReservationProfileResponse
+        {
+            public int Global_Id { get; set; }
+            public string LId { get; set; }
+            public string First { get; set; }
+            public string Last { get; set; }
+            public string PhoneNum { get; set; }
+        }
+
+        public static void test()
+        {
+            string s = null;
+            string n = null;
+
+            if (!n.Equals(s))
+            {
+                Console.WriteLine("not equal");
+            }
+
+            //List<ReservationProfileResponse> profiles = new List<ReservationProfileResponse>();
+            //var s = profiles.ToArray();
+            //Console.WriteLine("dada" + profiles.ToArray().ToString());
+        }
+        public static void dates()
+        {
+                 Console.WriteLine("{0,-18}{1,-12}{2}\n", "Date String", "Culture", "Result");
+
+                  string[] cultureNames = { "en-US", "ru-RU","ja-JP" };
+                  string[] dateStrings = { "01/02/09", "2009/02/03",  "01/2009/03", 
+                                           "01/02/2009", "21/02/09", "01/22/09",  
+                                           "01/02/23" };
+                  // Iterate each culture name in the array. 
+                  foreach (string cultureName in cultureNames)
+                  {
+                     CultureInfo culture = new CultureInfo(cultureName);
+
+                     // Parse each date using the designated culture. 
+                     foreach (string dateStr in dateStrings)
+                     {
+                        DateTime dateTimeValue;
+                        try {
+                           dateTimeValue = Convert.ToDateTime(dateStr, culture);
+                            // Display the date and time in a fixed format.
+                            Console.WriteLine("{0,-18}{1,-12}{2:yyyy-MMM-dd}",
+                                              dateStr, cultureName, dateTimeValue);
+                        }
+                        catch (FormatException e) { 
+                            Console.WriteLine("{0,-18}{1,-12}{2}", 
+                                              dateStr, cultureName, e.GetType().Name);
+                        }
+                     }
+                     Console.WriteLine();
+                  }
+        }
+
+        public class NewArrival
+        {
+            public string GlobalId { get; set; }
+            public string Email { get; set; }
+            public string WaxCenterId { get; set; }
+            public string ReservationId { get; set; }
+            public string GuestImage { get; set; }
+            public string LocalDate { get; set; }
+        }
+
+        static HubConnection _hubConnection;
+        private static async Task ConnectToSignalR()
+        {
+            try
+            {
+                //_hubConnection = new HubConnection("https://dev-waxcenter.azure-mobile.net/");
+                //_hubConnection.Headers["x-zumo-application"] = "mshzEWkSpeTUlssAkdlajDxuKxuiaH28";
+
+                _hubConnection = new HubConnection("https://waxcenter.azure-mobile.net/");
+                _hubConnection.Headers["x-zumo-application"] = "ilMlhCPlbOkCoawixtvrwIcaGUnfdF82";
+
+                _hubConnection.StateChanged += hubConnection_StateChanged;
+                IHubProxy proxy = _hubConnection.CreateHubProxy("WaxCenterArrivalHub");
+                await _hubConnection.Start();
+
+                string result = await proxy.Invoke<string>("JoinArrivalHub", "3");
+                Console.WriteLine("Join Hub Successful? " + result.ToString());
+
+                proxy.On<NewArrival>("AddNewArrival", newArrival =>
+                {
+                    Console.WriteLine("Someone arrivded: email: " + newArrival.Email.ToString() + " waxcenter harms id: " + newArrival.WaxCenterId.ToString() + " resID: " + newArrival.ReservationId.ToString());
+
+                });
+            }
+            catch
+            {
+                //You can log any errors here but its really on here for 503 errors to pass through
+            }
+        }
+
+        public class BeaconMessages
+        {
+            public string Message { get; set; }
+        }
+
+        private static async Task ConnectToSignalR2()
+        {
+            try
+            {
+                _hubConnection = new HubConnection("https://dev-waxcenter.azure-mobile.net/");
+                _hubConnection.Headers["x-zumo-application"] = "mshzEWkSpeTUlssAkdlajDxuKxuiaH28";
+
+                //_hubConnection = new HubConnection("https://waxcenter.azure-mobile.net/");
+                //_hubConnection.Headers["x-zumo-application"] = "ilMlhCPlbOkCoawixtvrwIcaGUnfdF82";
+
+                IHubProxy proxy = _hubConnection.CreateHubProxy("BeaconLoggerHub");
+                await _hubConnection.Start();
+
+                proxy.On<BeaconMessages>("RegionEntered", message =>
+                {
+                    Console.WriteLine("Beacon Logger:  " + message.Message);
+
+                });
+            }
+            catch
+            {
+                //You can log any errors here but its really on here for 503 errors to pass through
+            }
+        }
+
+ 
+        private static async void hubConnection_StateChanged(StateChange obj)
+        {
+            Console.WriteLine(obj.NewState.ToString());
+            if (obj.NewState == ConnectionState.Disconnected)
+            {
+                _hubConnection.StateChanged -= hubConnection_StateChanged;
+                await ConnectToSignalR();
+            }
+        }
+
+    }
+}
+ 
